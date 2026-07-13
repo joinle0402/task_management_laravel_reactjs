@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
 use Dedoc\Scramble\Attributes\BodyParameter;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -21,7 +22,7 @@ class AuthController extends Controller
     {
         $user = User::create($request->validated());
         $token = $user->createToken('access-token')->plainTextToken;
-        return response()->json(compact('token', 'user'));
+        return response()->json(compact('token', 'user'), 201);
     }
 
     #[BodyParameter('username', description: 'Tên đăng nhập', example: 'johnsmith2001it@gmail.com')]
@@ -32,5 +33,16 @@ class AuthController extends Controller
         throwIf(empty($user) || Hash::check($request->password, $user->password) == false, 'Tên tài khảon hoặc mật khẩu không chính xác.', 401);
         $token = $user->createToken('access-token')->plainTextToken;
         return response()->json(compact('token', 'user'));
+    }
+
+    public function me(Request $request)
+    {
+        return response()->json($request->user());
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->tokens()->delete();
+        return response()->json(['message' => 'Đăng xuất thành công.']);
     }
 }
