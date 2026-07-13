@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
 use Dedoc\Scramble\Attributes\BodyParameter;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -18,6 +20,16 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create($request->validated());
+        $token = $user->createToken('access-token')->plainTextToken;
+        return response()->json(compact('token', 'user'));
+    }
+
+    #[BodyParameter('username', description: 'Tên đăng nhập', example: 'johnsmith2001it@gmail.com')]
+    #[BodyParameter('password', description: 'Mật khẩu', example: '1106')]
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $user = User::where('username', $request->username)->first();
+        throwIf(empty($user) || Hash::check($request->password, $user->password) == false, 'Tên tài khảon hoặc mật khẩu không chính xác.', 401);
         $token = $user->createToken('access-token')->plainTextToken;
         return response()->json(compact('token', 'user'));
     }
