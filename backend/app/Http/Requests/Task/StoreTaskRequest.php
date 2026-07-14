@@ -1,0 +1,33 @@
+<?php
+
+namespace App\Http\Requests\Task;
+
+use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreTaskRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'created_by' => ['required', 'integer'],
+            'title' => ['required', 'required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => ['required', Rule::enum(TaskStatus::class)],
+            'priority' => ['required', Rule::enum(TaskPriority::class)],
+            'due_date' => ['nullable', 'date'],
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge(['created_by' => $this->user()->id]);
+    }
+}
