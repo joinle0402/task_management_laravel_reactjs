@@ -24,12 +24,31 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $lastName = fake()->randomElement([
+            'Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng',
+            'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng',
+            'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương',
+        ]);
+
+        $middleName = fake()->randomElement([
+            'Văn', 'Thị', 'Hoàng', 'Minh',
+            'Ngọc', 'Thanh', 'Đức', 'Quốc',
+        ]);
+
+        $firstName = fake()->randomElement([
+            'An', 'Anh', 'Bảo', 'Duy', 'Hà',
+            'Hải', 'Hiếu', 'Hùng', 'Khánh', 'Linh',
+            'Long', 'Mai', 'Minh', 'Nam', 'Ngân',
+            'Phong', 'Phúc', 'Quân', 'Trang', 'Tuấn',
+        ]);
+
+        $fullname = "{$lastName} {$middleName} {$firstName}";
+        $username = Str::slug($fullname, '').fake()->unique()->numberBetween(1, 9999).'@gmail.com';
+
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'fullname' => $fullname,
+            'username' => $username,
+            'password' => bcrypt('1106'),
         ];
     }
 
