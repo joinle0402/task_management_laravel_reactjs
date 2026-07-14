@@ -57,7 +57,7 @@ return [
         'title' => null,
     ],
 
-    'renderer' => 'elements',
+    'renderer' => 'scalar',
 
     'renderers' => [
         /*
