@@ -6,6 +6,7 @@ use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -58,6 +59,8 @@ class AppServiceProvider extends ServiceProvider
         Scramble::configure()->withDocumentTransformers(function (OpenApi $openApi): void {
             $openApi->secure(SecurityScheme::http('bearer'));
         });
+
+        JsonResource::withoutWrapping();
     }
 
     private function getSqlColor(string $type): string
