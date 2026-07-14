@@ -11,6 +11,8 @@ class SqlQueryLogger
 {
     private static bool $muted = false;
 
+    private static ?int $requestId = null;
+
     private ConsoleOutput $output;
 
     public function __construct()
@@ -28,42 +30,112 @@ class SqlQueryLogger
         $type = $this->getQueryType($sql);
         $color = $this->getQueryColor($type);
         $lines = $this->formatSqlLines($sql);
-        $lastIndex = array_key_last($lines);
-        $meta = $this->formatMeta($query, $type);
+        $meta = $this->formatMeta($query, $type, $sql);
 
-        $this->output->writeln('');
-        $this->output->writeln(sprintf(
-            '<fg=cyan;options=bold>SQL</> <fg=%s;options=bold>%s</>',
-            $color,
-            $type,
-        ));
+        $this->writeFirstQuerySpacing();
 
-        foreach ($lines as $index => $line) {
-            $suffix = $index === $lastIndex ? '  '.$meta : '';
+        if (count($lines) === 1) {
+            $this->output->writeln(sprintf(
+                '<fg=cyan;options=bold>Query:</> %s <fg=gray>|</> %s',
+                $this->highlightSql($lines[0], $color),
+                $meta,
+            ));
+            $this->writeQuerySpacing(2);
 
-            $this->output->writeln('  '.$this->highlightSql($line, $color).$suffix);
+            return;
+        }
+
+        if ($type === 'INSERT') {
+            $this->output->writeln(sprintf('<fg=cyan;options=bold>Query:</> %s', $meta));
+        } else {
+            $this->output->writeln('<fg=cyan;options=bold>Query:</>');
+        }
+
+        foreach ($lines as $line) {
+            $this->output->writeln($this->highlightSql($line, $color));
+        }
+
+        if ($type !== 'INSERT') {
+            $this->output->writeln($meta);
+        }
+
+        $this->writeQuerySpacing(2);
+    }
+
+    private function writeFirstQuerySpacing(): void
+    {
+        if (! app()->bound('request')) {
+            return;
+        }
+
+        $requestId = spl_object_id(app('request'));
+
+        if (self::$requestId === $requestId) {
+            return;
+        }
+
+        self::$requestId = $requestId;
+        $this->writeQuerySpacing(2);
+    }
+
+    private function writeQuerySpacing(int $lines): void
+    {
+        for ($line = 0; $line < $lines; $line++) {
+            $this->output->writeln('<fg=gray> </>');
         }
     }
 
-    private function formatMeta(QueryExecuted $query, string $type): string
+    private function formatMeta(QueryExecuted $query, string $type, string $sql): string
     {
-        $parts = [];
+        $parts = [
+            sprintf(
+                '<fg=%s;options=bold>%.2f ms</>',
+                $this->getTimeColor($query->time),
+                $query->time,
+            ),
+        ];
 
-        if (in_array($type, ['UPDATE', 'DELETE'], true)) {
-            $affectedRows = $this->getAffectedRows($query->connection);
+        if ($type === 'SELECT') {
+            $selectedRows = $this->getSelectedRows($query, $sql);
 
-            if ($affectedRows !== null) {
-                $parts[] = sprintf('<fg=white;options=bold>affected: %d</>', $affectedRows);
+            if ($selectedRows !== null) {
+                $parts[] = sprintf('<fg=white;options=bold>%d rows</>', $selectedRows);
             }
         }
 
-        $parts[] = sprintf(
-            '<fg=%s;options=bold>%.2f ms</>',
-            $this->getTimeColor($query->time),
-            $query->time,
-        );
+        if (in_array($type, ['INSERT', 'UPDATE', 'DELETE'], true)) {
+            $affectedRows = $this->getAffectedRows($query->connection);
 
-        return '<fg=gray>|</> '.implode(' <fg=gray>|</> ', $parts);
+            if ($affectedRows !== null) {
+                $parts[] = sprintf('<fg=white;options=bold>%d rows</>', $affectedRows);
+            }
+        }
+
+        return implode(' <fg=gray>|</> ', $parts);
+    }
+
+    private function getSelectedRows(QueryExecuted $query, string $sql): ?int
+    {
+        self::$muted = true;
+
+        try {
+            $rows = $query->connection->select($sql);
+
+            if (
+                count($rows) === 1
+                && preg_match('/\bCOUNT\s*\(/i', $sql)
+            ) {
+                $values = array_values((array) $rows[0]);
+
+                return isset($values[0]) && is_numeric($values[0]) ? (int) $values[0] : null;
+            }
+
+            return count($rows);
+        } catch (\Throwable) {
+            return null;
+        } finally {
+            self::$muted = false;
+        }
     }
 
     private function getAffectedRows(ConnectionInterface $connection): ?int
@@ -93,6 +165,12 @@ class SqlQueryLogger
 
     private function formatSqlLines(string $sql): array
     {
+        if ($this->getQueryType($sql) === 'INSERT') {
+            $sql = preg_replace('/\bVALUES\b/', "\nVALUES", $sql, 1) ?: $sql;
+
+            return array_values(array_filter(explode("\n", trim($sql)), fn (string $line): bool => trim($line) !== ''));
+        }
+
         if ($this->isSimpleQuery($sql)) {
             return [$sql];
         }

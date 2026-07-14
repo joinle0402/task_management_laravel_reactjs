@@ -14,7 +14,7 @@ class TaskController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
-        return TaskResource::collection(Task::all());
+        return TaskResource::collection(Task::query()->with('createdBy')->get());
     }
 
     public function store(StoreTaskRequest $request): TaskResource
