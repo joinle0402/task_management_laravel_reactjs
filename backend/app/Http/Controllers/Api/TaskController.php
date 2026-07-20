@@ -10,6 +10,8 @@ use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class TaskController extends Controller
 {
@@ -31,15 +33,23 @@ class TaskController extends Controller
         );
     }
 
+    /**
+     * @throws Throwable
+     */
     public function store(StoreTaskRequest $request): TaskResource
     {
-        $model = Task::create($request->validated());
+        $validated = $request->validated();
+        $model = DB::transaction(function () use ($validated) {
+            $task = Task::create(collect($validated)->except('assignee_ids')->all());
+            $task->assignees()->attach($validated['assignee_ids'] ?? []);
+            return $task->load('assignees');
+        });
         return new TaskResource($model);
     }
 
     public function show(Task $model): TaskResource
     {
-        return new TaskResource($model);
+        return new TaskResource($model->load('assignees'));
     }
 
     public function update(UpdateTaskRequest $request, Task $model): TaskResource

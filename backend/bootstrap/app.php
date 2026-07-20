@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\JsonUnicodeResponse;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return null;
         });
 
-        $exceptions->render(function () {
+        $exceptions->render(function (ModelNotFoundException $exception) {
             return response()->json([
                 'message' => 'Không tìm thấy thông tin này!',
             ], 404);

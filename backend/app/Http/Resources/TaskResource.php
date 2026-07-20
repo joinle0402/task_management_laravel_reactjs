@@ -17,6 +17,7 @@ class TaskResource extends JsonResource
             'priority' => $this->resource->priority?->value,
             'dueDate' => $this->resource->due_date?->format('Y-m-d'),
             'createdBy' => new UserResource($this->resource->createdBy),
+            'assignees' => UserResource::collection($this->whenLoaded('assignees')),
             'createdAt' => $this->resource->created_at,
             'updatedAt' => $this->resource->updated_at,
         ];

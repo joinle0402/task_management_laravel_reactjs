@@ -30,7 +30,8 @@ class SqlQueryLogger
         $type = $this->getQueryType($sql);
         $color = $this->getQueryColor($type);
         $lines = $this->formatSqlLines($sql);
-        $meta = $this->formatMeta($query, $type, $sql);
+        $selectedResult = $type === 'SELECT' ? $this->getSelectedResult($query, $sql) : null;
+        $meta = $this->formatMeta($query, $type, $selectedResult);
 
         $this->writeFirstQuerySpacing();
 
@@ -40,6 +41,7 @@ class SqlQueryLogger
                 $this->highlightSql($lines[0], $color),
                 $meta,
             ));
+            $this->writeSelectedResult($selectedResult);
             $this->writeQuerySpacing(2);
 
             return;
@@ -52,13 +54,14 @@ class SqlQueryLogger
         }
 
         foreach ($lines as $line) {
-            $this->output->writeln($this->highlightSql($line, $color));
+            $this->output->writeln($this->highlightSqlLine($line, $color));
         }
 
         if ($type !== 'INSERT') {
             $this->output->writeln($meta);
         }
 
+        $this->writeSelectedResult($selectedResult);
         $this->writeQuerySpacing(2);
     }
 
@@ -85,7 +88,7 @@ class SqlQueryLogger
         }
     }
 
-    private function formatMeta(QueryExecuted $query, string $type, string $sql): string
+    private function formatMeta(QueryExecuted $query, string $type, ?array $selectedResult): string
     {
         $parts = [
             sprintf(
@@ -95,12 +98,8 @@ class SqlQueryLogger
             ),
         ];
 
-        if ($type === 'SELECT') {
-            $selectedRows = $this->getSelectedRows($query, $sql);
-
-            if ($selectedRows !== null) {
-                $parts[] = sprintf('<fg=white;options=bold>%d rows</>', $selectedRows);
-            }
+        if ($type === 'SELECT' && $selectedResult !== null) {
+            $parts[] = sprintf('<fg=white;options=bold>%d rows</>', $selectedResult['total']);
         }
 
         if (in_array($type, ['INSERT', 'UPDATE', 'DELETE'], true)) {
@@ -114,28 +113,58 @@ class SqlQueryLogger
         return implode(' <fg=gray>|</> ', $parts);
     }
 
-    private function getSelectedRows(QueryExecuted $query, string $sql): ?int
+    private function getSelectedResult(QueryExecuted $query, string $sql): ?array
     {
         self::$muted = true;
 
         try {
             $rows = $query->connection->select($sql);
+            $total = count($rows);
 
             if (
-                count($rows) === 1
+                $total === 1
                 && preg_match('/\bCOUNT\s*\(/i', $sql)
             ) {
                 $values = array_values((array) $rows[0]);
 
-                return isset($values[0]) && is_numeric($values[0]) ? (int) $values[0] : null;
+                if (isset($values[0]) && is_numeric($values[0])) {
+                    $total = (int) $values[0];
+                }
             }
 
-            return count($rows);
+            return [
+                'total' => $total,
+                'rows' => array_slice($rows, 0, 3),
+            ];
         } catch (\Throwable) {
             return null;
         } finally {
             self::$muted = false;
         }
+    }
+
+    private function writeSelectedResult(?array $selectedResult): void
+    {
+        if ($selectedResult === null || $selectedResult['rows'] === []) {
+            return;
+        }
+
+        $this->output->writeln('<fg=cyan;options=bold>Result:</>');
+
+        foreach ($selectedResult['rows'] as $index => $row) {
+            $this->output->writeln(sprintf(
+                '<fg=gray>[%d]</> %s',
+                $index + 1,
+                $this->formatResultJson((array) $row),
+            ));
+        }
+    }
+
+    private function formatResultJson(array $row): string
+    {
+        $json = json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return '<fg=green>'.OutputFormatter::escape($json ?: '{}').'</>';
     }
 
     private function getAffectedRows(ConnectionInterface $connection): ?int
@@ -166,9 +195,7 @@ class SqlQueryLogger
     private function formatSqlLines(string $sql): array
     {
         if ($this->getQueryType($sql) === 'INSERT') {
-            $sql = preg_replace('/\bVALUES\b/', "\nVALUES", $sql, 1) ?: $sql;
-
-            return array_values(array_filter(explode("\n", trim($sql)), fn (string $line): bool => trim($line) !== ''));
+            return $this->formatInsertSqlLines($sql);
         }
 
         if ($this->isSimpleQuery($sql)) {
@@ -184,6 +211,82 @@ class SqlQueryLogger
         $sql = preg_replace('/\b(AND|OR)\b/', "\n  $1", $sql) ?: $sql;
 
         return array_values(array_filter(explode("\n", trim($sql)), fn (string $line): bool => trim($line) !== ''));
+    }
+
+    private function formatInsertSqlLines(string $sql): array
+    {
+        if (! preg_match('/^(.*?)\s+VALUES\s+(.+)$/', $sql, $matches)) {
+            return [$sql];
+        }
+
+        $records = $this->splitInsertRecords($matches[2]);
+
+        if ($records === []) {
+            return [$sql];
+        }
+
+        $lines = [
+            trim($matches[1]),
+            'VALUES '.$records[0],
+        ];
+
+        foreach (array_slice($records, 1) as $record) {
+            $lines[] = '       '.$record;
+        }
+
+        return $lines;
+    }
+
+    private function splitInsertRecords(string $values): array
+    {
+        $records = [];
+        $record = '';
+        $depth = 0;
+        $inString = false;
+        $length = strlen($values);
+
+        for ($index = 0; $index < $length; $index++) {
+            $char = $values[$index];
+            $nextChar = $values[$index + 1] ?? null;
+
+            if ($char === "'") {
+                $record .= $char;
+
+                if ($inString && $nextChar === "'") {
+                    $record .= $nextChar;
+                    $index++;
+
+                    continue;
+                }
+
+                $inString = ! $inString;
+
+                continue;
+            }
+
+            if (! $inString) {
+                if ($char === '(') {
+                    $depth++;
+                } elseif ($char === ')') {
+                    $depth--;
+                } elseif ($char === ',' && $depth === 0) {
+                    $records[] = trim($record).',';
+                    $record = '';
+
+                    continue;
+                }
+            }
+
+            $record .= $char;
+        }
+
+        $record = trim($record);
+
+        if ($record !== '') {
+            $records[] = $record;
+        }
+
+        return $records;
     }
 
     private function isSimpleQuery(string $sql): bool
@@ -243,6 +346,19 @@ class SqlQueryLogger
         }
 
         return implode('', $parts);
+    }
+
+    private function highlightSqlLine(string $sql, string $keywordColor): string
+    {
+        preg_match('/^\s*/', $sql, $matches);
+
+        $indent = $matches[0] ?? '';
+
+        if ($indent === '') {
+            return $this->highlightSql($sql, $keywordColor);
+        }
+
+        return "\033[0m".$indent.$this->highlightSql(ltrim($sql), $keywordColor);
     }
 
     private function splitSqlByStrings(string $sql): array

@@ -13,8 +13,6 @@ class UserResource extends JsonResource
             'id',
             'fullname',
             'username',
-            'created_at',
-            'updated_at',
         ]);
     }
 }
