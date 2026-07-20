@@ -91,6 +91,14 @@ class SqlQueryLogger
             ),
         ];
 
+        if ($type === 'SELECT') {
+            $selectedRows = $this->getSelectedRows($query);
+
+            if ($selectedRows !== null) {
+                $parts[] = sprintf('<fg=white;options=bold>%d rows</>', $selectedRows);
+            }
+        }
+
         if (in_array($type, ['INSERT', 'UPDATE', 'DELETE'], true)) {
             $affectedRows = $this->getAffectedRows($query->connection);
 
@@ -100,6 +108,31 @@ class SqlQueryLogger
         }
 
         return implode(' <fg=gray>|</> ', $parts);
+    }
+
+    private function getSelectedRows(QueryExecuted $query): ?int
+    {
+        self::$muted = true;
+
+        try {
+            if (preg_match('/^\s*SELECT\s+COUNT\s*\(/i', $query->sql)) {
+                $row = $query->connection->selectOne($query->sql, $query->bindings);
+                $values = array_values((array) $row);
+
+                return isset($values[0]) && is_numeric($values[0]) ? (int) $values[0] : null;
+            }
+
+            $row = $query->connection->selectOne(
+                'SELECT COUNT(*) AS sql_log_rows FROM ('.$query->sql.') AS sql_log_count',
+                $query->bindings,
+            );
+
+            return isset($row->sql_log_rows) ? (int) $row->sql_log_rows : null;
+        } catch (\Throwable) {
+            return null;
+        } finally {
+            self::$muted = false;
+        }
     }
 
     private function getAffectedRows(ConnectionInterface $connection): ?int

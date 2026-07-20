@@ -18,7 +18,7 @@ class TaskController extends Controller
     public function index(SearchTaskRequest $request): AnonymousResourceCollection
     {
         return TaskResource::collection(Task::query()
-                ->with('createdBy')
+                ->with('createdBy', 'assignees')
                 ->when($request->validated('keyword'), fn ($query, $keyword) => $query->where(function ($query) use ($keyword) {
                     $query->where('title', 'like', "%$keyword%")->orWhere('description', 'like', "%$keyword%");
                 }))
@@ -52,9 +52,19 @@ class TaskController extends Controller
         return new TaskResource($model->load('assignees'));
     }
 
+    /**
+     * @throws Throwable
+     */
     public function update(UpdateTaskRequest $request, Task $model): TaskResource
     {
-        $model->update($request->validated());
+        $validated = $request->validated();
+        $model = DB::transaction(function () use ($validated, $model)  {
+            $model->update(collect($validated)->except('assignee_ids')->all());
+            if (array_key_exists('assignee_ids', $validated)) {
+                $model->assignees()->sync($validated['assignee_ids']);
+            }
+            return $model->load('createdBy', 'assignees');
+        });
         return new TaskResource($model);
     }
 
