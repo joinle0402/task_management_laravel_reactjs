@@ -45,18 +45,14 @@ class SqlQueryLogger
             return;
         }
 
-        if ($type === 'INSERT') {
-            $this->output->writeln(sprintf('<fg=cyan;options=bold>Query:</> %s', $meta));
-        } else {
-            $this->output->writeln('<fg=cyan;options=bold>Query:</>');
-        }
+        $this->output->writeln('<fg=cyan;options=bold>Query:</>');
 
-        foreach ($lines as $line) {
-            $this->output->writeln($this->highlightSqlLine($line, $color));
-        }
+        $lastIndex = array_key_last($lines);
 
-        if ($type !== 'INSERT') {
-            $this->output->writeln($meta);
+        foreach ($lines as $index => $line) {
+            $suffix = $index === $lastIndex ? ' <fg=gray>|</> '.$meta : '';
+
+            $this->output->writeln($this->highlightSqlLine($line, $color).$suffix);
         }
 
         $this->writeQuerySpacing(2);
@@ -133,8 +129,16 @@ class SqlQueryLogger
 
     private function formatSqlLines(string $sql): array
     {
+        if ($this->getQueryType($sql) === 'CREATE') {
+            return $this->formatCreateSqlLines($sql);
+        }
+
         if ($this->getQueryType($sql) === 'INSERT') {
             return $this->formatInsertSqlLines($sql);
+        }
+
+        if (preg_match('/^SELECT\s+EXISTS\s*\(/i', $sql)) {
+            return $this->formatExistsSqlLines($sql);
         }
 
         if ($this->isSimpleQuery($sql)) {
@@ -152,13 +156,65 @@ class SqlQueryLogger
         return array_values(array_filter(explode("\n", trim($sql)), fn (string $line): bool => trim($line) !== ''));
     }
 
+    private function formatCreateSqlLines(string $sql): array
+    {
+        if (! preg_match('/^CREATE\s+((?:TEMP|TEMPORARY)\s+)?TABLE\s+(.+?)\s*\((.*)\)$/i', $sql, $matches)) {
+            return [$sql];
+        }
+
+        $definitions = $this->splitTopLevelComma($matches[3]);
+
+        if ($definitions === []) {
+            return [$sql];
+        }
+
+        $lines = [
+            'CREATE '.($matches[1] ?? '').'TABLE '.$matches[2].' (',
+        ];
+
+        foreach ($definitions as $index => $definition) {
+            $suffix = $index === array_key_last($definitions) ? '' : ',';
+            $lines[] = '    '.$definition.$suffix;
+        }
+
+        $lines[] = ')';
+
+        return $lines;
+    }
+
+    private function formatExistsSqlLines(string $sql): array
+    {
+        if (! preg_match('/^SELECT\s+EXISTS\s*\((.*)\)\s+AS\s+(.+)$/i', $sql, $matches)) {
+            return [$sql];
+        }
+
+        $innerSql = trim($matches[1]);
+        $innerSql = preg_replace(
+            '/\b(FROM|WHERE|INNER JOIN|LEFT JOIN|RIGHT JOIN|JOIN|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET)\b/',
+            "\n$1",
+            $innerSql,
+        ) ?: $innerSql;
+        $innerSql = preg_replace('/\b(AND|OR)\b/', "\n  $1", $innerSql) ?: $innerSql;
+
+        $lines = ['SELECT EXISTS ('];
+
+        foreach (explode("\n", trim($innerSql)) as $line) {
+            $lines[] = '    '.rtrim($line);
+        }
+
+        $alias = $matches[2] === 'EXISTS' ? 'exists' : $matches[2];
+        $lines[] = ') AS '.$alias;
+
+        return $lines;
+    }
+
     private function formatInsertSqlLines(string $sql): array
     {
         if (! preg_match('/^(.*?)\s+VALUES\s+(.+)$/', $sql, $matches)) {
             return [$sql];
         }
 
-        $records = $this->splitInsertRecords($matches[2]);
+        $records = $this->splitTopLevelComma($matches[2], true);
 
         if ($records === []) {
             return [$sql];
@@ -176,23 +232,23 @@ class SqlQueryLogger
         return $lines;
     }
 
-    private function splitInsertRecords(string $values): array
+    private function splitTopLevelComma(string $value, bool $keepComma = false): array
     {
-        $records = [];
-        $record = '';
+        $items = [];
+        $item = '';
         $depth = 0;
         $inString = false;
-        $length = strlen($values);
+        $length = strlen($value);
 
         for ($index = 0; $index < $length; $index++) {
-            $char = $values[$index];
-            $nextChar = $values[$index + 1] ?? null;
+            $char = $value[$index];
+            $nextChar = $value[$index + 1] ?? null;
 
             if ($char === "'") {
-                $record .= $char;
+                $item .= $char;
 
                 if ($inString && $nextChar === "'") {
-                    $record .= $nextChar;
+                    $item .= $nextChar;
                     $index++;
 
                     continue;
@@ -209,23 +265,23 @@ class SqlQueryLogger
                 } elseif ($char === ')') {
                     $depth--;
                 } elseif ($char === ',' && $depth === 0) {
-                    $records[] = trim($record).',';
-                    $record = '';
+                    $items[] = trim($item).($keepComma ? ',' : '');
+                    $item = '';
 
                     continue;
                 }
             }
 
-            $record .= $char;
+            $item .= $char;
         }
 
-        $record = trim($record);
+        $item = trim($item);
 
-        if ($record !== '') {
-            $records[] = $record;
+        if ($item !== '') {
+            $items[] = $item;
         }
 
-        return $records;
+        return $items;
     }
 
     private function isSimpleQuery(string $sql): bool
@@ -245,7 +301,7 @@ class SqlQueryLogger
 
             $part = preg_replace('/["`]([a-zA-Z_][a-zA-Z0-9_]*)["`]/', '$1', $part) ?: $part;
             $part = preg_replace_callback(
-                '/\b(group\s+by|order\s+by|inner\s+join|left\s+join|right\s+join|select|from|where|insert|into|values|update|set|delete|join|on|and|or|having|limit|offset|count|as|null|returning)\b/i',
+                '/\b(group\s+by|order\s+by|inner\s+join|left\s+join|right\s+join|primary\s+key|foreign\s+key|not\s+null|on\s+delete|create|temporary|temp|table|unique|index|select|from|where|insert|into|values|update|set|delete|join|references|cascade|exists|on|and|or|having|limit|offset|count|as|null|returning|integer|datetime|text|autoincrement)\b/i',
                 fn (array $matches): string => strtoupper(preg_replace('/\s+/', ' ', $matches[1]) ?: $matches[1]),
                 $part,
             ) ?: $part;
@@ -270,7 +326,7 @@ class SqlQueryLogger
             }
 
             $part = preg_replace(
-                '/\b(SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|ON|AND|OR|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|COUNT|AS|NULL|RETURNING)\b/',
+                '/\b(PRIMARY KEY|FOREIGN KEY|NOT NULL|ON DELETE|GROUP BY|ORDER BY|INNER JOIN|LEFT JOIN|RIGHT JOIN|CREATE|TEMPORARY|TEMP|TABLE|UNIQUE|INDEX|SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|ON|AND|OR|HAVING|LIMIT|OFFSET|COUNT|AS|NULL|RETURNING|EXISTS|REFERENCES|CASCADE)\b/',
                 '<fg='.$keywordColor.';options=bold>$1</>',
                 $part,
             ) ?: $part;
