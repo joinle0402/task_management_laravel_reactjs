@@ -30,8 +30,7 @@ class SqlQueryLogger
         $type = $this->getQueryType($sql);
         $color = $this->getQueryColor($type);
         $lines = $this->formatSqlLines($sql);
-        $selectedResult = $type === 'SELECT' ? $this->getSelectedResult($query, $sql) : null;
-        $meta = $this->formatMeta($query, $type, $selectedResult);
+        $meta = $this->formatMeta($query, $type);
 
         $this->writeFirstQuerySpacing();
 
@@ -41,7 +40,6 @@ class SqlQueryLogger
                 $this->highlightSql($lines[0], $color),
                 $meta,
             ));
-            $this->writeSelectedResult($selectedResult);
             $this->writeQuerySpacing(2);
 
             return;
@@ -61,7 +59,6 @@ class SqlQueryLogger
             $this->output->writeln($meta);
         }
 
-        $this->writeSelectedResult($selectedResult);
         $this->writeQuerySpacing(2);
     }
 
@@ -88,7 +85,7 @@ class SqlQueryLogger
         }
     }
 
-    private function formatMeta(QueryExecuted $query, string $type, ?array $selectedResult): string
+    private function formatMeta(QueryExecuted $query, string $type): string
     {
         $parts = [
             sprintf(
@@ -97,10 +94,6 @@ class SqlQueryLogger
                 $query->time,
             ),
         ];
-
-        if ($type === 'SELECT' && $selectedResult !== null) {
-            $parts[] = sprintf('<fg=white;options=bold>%d rows</>', $selectedResult['total']);
-        }
 
         if (in_array($type, ['INSERT', 'UPDATE', 'DELETE'], true)) {
             $affectedRows = $this->getAffectedRows($query->connection);
@@ -111,60 +104,6 @@ class SqlQueryLogger
         }
 
         return implode(' <fg=gray>|</> ', $parts);
-    }
-
-    private function getSelectedResult(QueryExecuted $query, string $sql): ?array
-    {
-        self::$muted = true;
-
-        try {
-            $rows = $query->connection->select($sql);
-            $total = count($rows);
-
-            if (
-                $total === 1
-                && preg_match('/\bCOUNT\s*\(/i', $sql)
-            ) {
-                $values = array_values((array) $rows[0]);
-
-                if (isset($values[0]) && is_numeric($values[0])) {
-                    $total = (int) $values[0];
-                }
-            }
-
-            return [
-                'total' => $total,
-                'rows' => array_slice($rows, 0, 3),
-            ];
-        } catch (\Throwable) {
-            return null;
-        } finally {
-            self::$muted = false;
-        }
-    }
-
-    private function writeSelectedResult(?array $selectedResult): void
-    {
-        if ($selectedResult === null || $selectedResult['rows'] === []) {
-            return;
-        }
-
-        $this->output->writeln('<fg=cyan;options=bold>Result:</>');
-
-        foreach ($selectedResult['rows'] as $index => $row) {
-            $this->output->writeln(sprintf(
-                '<fg=gray>[%d]</> %s',
-                $index + 1,
-                $this->formatResultJson((array) $row),
-            ));
-        }
-    }
-
-    private function formatResultJson(array $row): string
-    {
-        $json = json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        return '<fg=green>'.OutputFormatter::escape($json ?: '{}').'</>';
     }
 
     private function getAffectedRows(ConnectionInterface $connection): ?int
