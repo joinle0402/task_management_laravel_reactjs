@@ -18,7 +18,7 @@ class TaskController extends Controller
     public function index(SearchTaskRequest $request): AnonymousResourceCollection
     {
         return TaskResource::collection(Task::query()
-                ->with('createdBy', 'assignees')
+                ->with('createdBy', 'assignees', 'checklistItems')
                 ->when($request->validated('keyword'), fn ($query, $keyword) => $query->where(function ($query) use ($keyword) {
                     $query->where('title', 'like', "%$keyword%")->orWhere('description', 'like', "%$keyword%");
                 }))
@@ -40,16 +40,25 @@ class TaskController extends Controller
     {
         $validated = $request->validated();
         $model = DB::transaction(function () use ($validated) {
-            $task = Task::create(collect($validated)->except('assignee_ids')->all());
+            $task = Task::create(collect($validated)->except('assignee_ids', 'checklist_items')->all());
             $task->assignees()->attach($validated['assignee_ids'] ?? []);
-            return $task->load('assignees');
+
+            foreach ($validated['checklist_items'] ?? [] as $position => $item) {
+                $task->checklistItems()->create([
+                    'name' => trim($item['name']),
+                    'done' => $item['done'] ?? false,
+                    'position' => $position,
+                ]);
+            }
+
+            return $task->load('assignees', 'checklistItems');
         });
         return new TaskResource($model);
     }
 
     public function show(Task $model): TaskResource
     {
-        return new TaskResource($model->load('assignees'));
+        return new TaskResource($model->load('assignees', 'checklistItems'));
     }
 
     /**
@@ -59,18 +68,49 @@ class TaskController extends Controller
     {
         $validated = $request->validated();
         $model = DB::transaction(function () use ($validated, $model)  {
-            $model->update(collect($validated)->except('assignee_ids')->all());
+            $model->update(collect($validated)->except('assignee_ids', 'checklist_items')->all());
+
             if (array_key_exists('assignee_ids', $validated)) {
                 $model->assignees()->sync($validated['assignee_ids']);
             }
-            return $model->load('createdBy', 'assignees');
+
+            if (array_key_exists('checklist_items', $validated)) {
+                $this->syncChecklistItems($model, $validated['checklist_items']);
+            }
+
+            return $model->load('createdBy', 'assignees', 'checklistItems');
         });
         return new TaskResource($model);
     }
+
+
 
     public function destroy(Task $model): Response
     {
         $model->delete();
         return response()->noContent();
+    }
+
+    private function syncChecklistItems(Task $task, array $checklistItems)
+    {
+        $existingItems = $task->checklistItems()->pluck('id')->toArray();
+        $requestItems = collect($checklistItems)->pluck('id')->filter()->map(fn ($id) => (int) $id)->values()->toArray();
+
+        $itemIdsToDelete = array_diff($existingItems, $requestItems);
+        if (!empty($itemIdsToDelete)) {
+            $task->checklistItems()->whereIn('id', $itemIdsToDelete)->delete();
+        }
+
+        foreach ($checklistItems as $position => $item) {
+            $checklist = [];
+            $checklist['name'] = $item['name'];
+            $checklist['done'] = $item['done'] ?? false;
+            $checklist['position'] = $position + 1;
+            if (!empty($item['id'])) {
+                $task->checklistItems()->whereKey($item['id'])->update($checklist);
+            } else {
+                $task->checklistItems()->create($checklist);
+            }
+        }
     }
 }

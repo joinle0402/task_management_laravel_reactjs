@@ -18,6 +18,7 @@ class TaskResource extends JsonResource
             'dueDate' => $this->resource->due_date?->format('Y-m-d'),
             'createdBy' => new UserResource($this->resource->createdBy),
             'assignees' => UserResource::collection($this->whenLoaded('assignees')),
+            'checklist_items' => ChecklistItemResource::collection($this->whenLoaded('checklistItems')),
             'createdAt' => $this->resource->created_at,
             'updatedAt' => $this->resource->updated_at,
         ];

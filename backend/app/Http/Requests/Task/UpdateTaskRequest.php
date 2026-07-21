@@ -4,7 +4,9 @@ namespace App\Http\Requests\Task;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Models\TaskChecklistItem;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -18,6 +20,7 @@ class UpdateTaskRequest extends FormRequest
 
     public function rules(): array
     {
+        $task = $this->route('model');
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
@@ -26,6 +29,10 @@ class UpdateTaskRequest extends FormRequest
             'due_date' => ['sometimes', 'nullable', 'date'],
             'assignee_ids' => ['sometimes', 'array'],
             'assignee_ids.*' => ['required', 'integer'],
+            'checklist_items' => 'sometimes|array',
+            'checklist_items.*.id' => 'sometimes|integer',
+            'checklist_items.*.name' => 'required|string|max:255',
+            'checklist_items.*.done' => 'sometimes|boolean',
         ];
     }
 
@@ -33,15 +40,21 @@ class UpdateTaskRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                $userIds = collect($this->input('assignee_ids', []))->filter(fn ($id) => is_int($id) || ctype_digit($id))->unique()->values();
-                if (!$userIds->isEmpty()) {
-                    $existingUserIds = User::whereIn('id', $userIds)->pluck('id');
-                    $missingUserIds = $userIds->diff($existingUserIds);
-                    if (!$missingUserIds->isEmpty()) {
-                        $validator->errors()->add('assignee_ids', 'Các người dùng không tồn tại: '.$missingUserIds->implode(', '));
-                    }
-                }
+                $this->validateIdsExist($validator, 'assignee_ids', User::query());
+                $this->validateIdsExist($validator, 'checklist_items', TaskChecklistItem::whereTaskId($this->route('model')->id));
             },
         ];
+    }
+
+    private function validateIdsExist(Validator $validator, string $fieldname, Builder $query): void
+    {
+        $request = collect($this->input($fieldname, []));
+        $requestIds = $request->pluck('id')->filter()->unique()->values();
+        if (empty($requestIds)) return;
+        $existingIds = $query->whereIn('id', $requestIds)->pluck('id')->all();
+        $missingIds  = $requestIds->diff($existingIds);
+        if ($missingIds->isNotEmpty()) {
+            $validator->errors()->add($fieldname,'Các ID không hợp lệ: '.$missingIds->implode(', '));
+        }
     }
 }

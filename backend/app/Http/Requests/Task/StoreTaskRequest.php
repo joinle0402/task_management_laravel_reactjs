@@ -27,6 +27,9 @@ class StoreTaskRequest extends FormRequest
             'due_date' => ['nullable', 'date'],
             'assignee_ids' => ['required', 'array'],
             'assignee_ids.*' => ['required', 'integer'],
+            'checklist_items' => 'sometimes|array',
+            'checklist_items.*.name' => 'required|string|max:255',
+            'checklist_items.*.done' => 'sometimes|boolean',
         ];
     }
 
