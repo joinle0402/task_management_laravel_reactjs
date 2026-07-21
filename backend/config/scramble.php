@@ -165,7 +165,7 @@ return [
      *     \Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy::class,
      *     [
      *         'middleware' => ['auth', 'auth:*'],
-     *         'scheme' => \Dedoc\Scramble\Support\Generator\SecurityScheme::http('bearer'),
+     *         'scheme' => \Dedoc\Scramble\Support\Generator\SecurityScheme::axiosInstance('bearer'),
      *     ],
      * ],
      */
