@@ -23,7 +23,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+        <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 px-4 py-10">
             <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/50 sm:p-8">
                 <div className="mb-7 text-center">
                     <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Tạo tài khoản</h1>

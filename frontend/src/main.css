@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+.ant-form-item-explain-error {
+    font-size: 12px;
+    margin-top: 2px;
+}
