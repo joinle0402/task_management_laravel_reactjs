@@ -5,8 +5,9 @@ import { useForm } from 'react-hook-form';
 import { Button, Form } from 'antd';
 import { InputField } from '@/components/forms/InputField.tsx';
 import { PasswordField } from '@/components/forms/PasswordField.tsx';
+import { Link } from 'react-router-dom';
 
-export function RegisterPage() {
+export default function RegisterPage() {
     const { control, handleSubmit } = useForm<RegisterFormValues>({
         resolver: zodResolver(RegisterSchema),
         defaultValues: {
@@ -43,6 +44,12 @@ export function RegisterPage() {
                         Đăng ký
                     </Button>
                 </Form>
+                <div className="mt-6 text-center text-sm text-slate-500">
+                    Đã có tài khoản?{' '}
+                    <Link to="/login" className="font-medium text-blue-600 hover:text-blue-700">
+                        Đăng nhập
+                    </Link>
+                </div>
             </div>
         </main>
     );
