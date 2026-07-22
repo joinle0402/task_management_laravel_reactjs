@@ -15,7 +15,7 @@ export function PasswordField<T extends FieldValues>({ control, name, label, req
             name={name}
             render={({ field, fieldState }) => (
                 <Form.Item label={label} validateStatus={fieldState.error ? 'error' : ''} help={fieldState.error?.message} required={required}>
-                    <Input.Password {...field} {...props} value={field.value ?? ''} />
+                    <Input.Password {...field} {...props} value={field.value ?? ''} className="h-8" />
                 </Form.Item>
             )}
         />

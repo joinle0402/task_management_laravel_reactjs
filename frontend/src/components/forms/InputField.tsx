@@ -15,7 +15,7 @@ export function InputField<T extends FieldValues>({ control, name, label, requir
             name={name}
             render={({ field, fieldState }) => (
                 <Form.Item label={label} validateStatus={fieldState.error ? 'error' : ''} help={fieldState.error?.message} required={required}>
-                    <Input {...field} {...props} value={field.value ?? ''} />
+                    <Input {...field} {...props} value={field.value ?? ''} className="h-8" />
                 </Form.Item>
             )}
         />
