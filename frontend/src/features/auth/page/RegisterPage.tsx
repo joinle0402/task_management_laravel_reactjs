@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { RegisterSchema } from '@/features/auth/schemas/auth.schema.ts';
 import type { AuthResponse, RegisterFormValues } from '@/features/auth/types/auth.types.ts';
-import { type FieldErrors, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Button, Form, message } from 'antd';
 import { InputField } from '@/components/forms/InputField.tsx';
 import { PasswordField } from '@/components/forms/PasswordField.tsx';
@@ -40,9 +40,6 @@ export default function RegisterPage() {
                 }),
         });
     };
-    const onInvalid = (errors: FieldErrors<RegisterFormValues>) => {
-        console.log('Form validation errors:', errors);
-    };
     return (
         <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 px-4 py-10">
             <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/50 sm:p-8">
@@ -51,7 +48,7 @@ export default function RegisterPage() {
 
                     <p className="mt-2 text-sm leading-6 text-slate-500">Đăng ký để bắt đầu quản lý công việc</p>
                 </div>
-                <Form layout="vertical" onFinish={handleSubmit(onSubmit, onInvalid)} noValidate>
+                <Form layout="vertical" onFinish={handleSubmit(onSubmit)} noValidate>
                     <InputField control={control} name="fullname" label="Họ và tên" placeholder="John Smith" autoComplete="name" required />
                     <InputField control={control} name="username" label="Email" placeholder="name@example.com" autoComplete="username" required />
                     <PasswordField
