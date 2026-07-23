@@ -6,16 +6,15 @@ import { Button, Form } from 'antd';
 import { InputField } from '@/components/forms/InputField.tsx';
 import { PasswordField } from '@/components/forms/PasswordField.tsx';
 import { Link } from 'react-router-dom';
+import { useLogin } from '@/features/auth/hooks/useLogin.ts';
 
 export default function LoginPage() {
-    const { control, handleSubmit } = useForm<LoginFormValues>({
+    const { control, handleSubmit, setError, formState } = useForm<LoginFormValues>({
         resolver: zodResolver(LoginSchema),
         defaultValues: { username: '', password: '' },
     });
-
-    const onSubmit = (formValues: LoginFormValues) => {
-        console.log(formValues);
-    };
+    const { isSubmitting } = formState;
+    const { mutate: onSubmit, isPending } = useLogin({ setError });
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 px-4 py-10">
@@ -24,7 +23,7 @@ export default function LoginPage() {
                     <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Đăng nhập</h1>
                     <p className="mt-2 text-sm leading-6 text-slate-500">Đăng nhập để tiếp tục quản lý công việc</p>
                 </header>
-                <Form layout="vertical" onFinish={handleSubmit(onSubmit)} noValidate>
+                <Form layout="vertical" onFinish={handleSubmit((formValues: LoginFormValues) => onSubmit(formValues))} noValidate>
                     <InputField control={control} name="username" label="Email" placeholder="name@example.com" autoComplete="username" required />
                     <PasswordField
                         control={control}
@@ -34,7 +33,7 @@ export default function LoginPage() {
                         autoComplete="new-password"
                         required
                     />
-                    <Button type="primary" htmlType="submit" block>
+                    <Button type="primary" htmlType="submit" loading={isPending || isSubmitting} disabled={isPending || isSubmitting} block>
                         Đăng nhập
                     </Button>
                 </Form>

@@ -30,7 +30,7 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         $user = User::where('username', $request->username)->first();
-        throwIf(empty($user) || Hash::check($request->password, $user->password) == false, 'Tên tài khảon hoặc mật khẩu không chính xác.', 401);
+        throwIf(empty($user) || Hash::check($request->password, $user->password) == false, 'Tên tài khoản hoặc mật khẩu không chính xác.', 401);
         $token = $user->createToken('access-token')->plainTextToken;
         return response()->json(compact('token', 'user'));
     }
