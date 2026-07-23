@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const LoginSchema = z.object({
-    username: z.string().min(1, 'Vui lòng nhập username'),
-    password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+    username: z.string().min(1, 'Email không được để trống'),
+    password: z.string().min(1, 'Mật khẩu không được để trống'),
 });
 
 export const RegisterSchema = z
@@ -14,5 +14,5 @@ export const RegisterSchema = z
     })
     .refine((values) => values.password === values.password_confirmation, {
         message: 'Mật khẩu xác nhận không khớp',
-        path: ['passwordConfirmation'],
+        path: ['password_confirmation'],
     });

@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
 
         if (app()->runningInConsole() && ($_SERVER['argv'][1] ?? null) === 'serve') {
             echo PHP_EOL;
-            echo '  Swagger: axiosInstance://127.0.0.1:8000/docs/api#'.PHP_EOL;
+            echo '  Swagger: http://localhost:8000/docs/api#'.PHP_EOL;
             echo PHP_EOL;
         }
 

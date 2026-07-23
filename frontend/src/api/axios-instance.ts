@@ -2,7 +2,7 @@ import * as axios from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 export const axiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: '/api/v1',
     headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',

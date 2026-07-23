@@ -4,3 +4,8 @@ export interface ErrorResponse {
     message: string;
     errors?: ValidationErrors;
 }
+
+export interface ValidationError {
+    message: string;
+    errors: Record<string, string[]>;
+}
