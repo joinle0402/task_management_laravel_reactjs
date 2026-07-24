@@ -1,5 +1,6 @@
 import * as axios from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
+import { useAuthStore } from '@/stores/auth.store.ts';
 
 export const axiosInstance = axios.create({
     baseURL: '/api/v1',
@@ -10,10 +11,12 @@ export const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig<any>): InternalAxiosRequestConfig<any> => {
-    const token = localStorage.getItem('access_token');
+    const token = useAuthStore.getState().token;
+
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
 });
 
