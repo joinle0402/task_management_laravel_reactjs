@@ -5,3 +5,91 @@
     line-height: 1.4;
     margin-top: 4px;
 }
+
+.app-header-user,
+.app-header-user * {
+    line-height: normal !important;
+}
+
+.app-header-user .ant-space {
+    gap: 2px !important;
+}
+
+.app-sidebar {
+    background: #001529 !important;
+}
+
+.app-sidebar-menu.ant-menu-dark {
+    background: transparent;
+    padding: 0 10px;
+}
+
+.app-sidebar-menu.ant-menu-dark .ant-menu-item {
+    height: 42px;
+    margin: 4px 0;
+    border-radius: 8px;
+    color: rgb(255 255 255 / 72%);
+}
+
+.app-sidebar-menu.ant-menu-dark .ant-menu-item .ant-menu-item-icon {
+    color: rgb(255 255 255 / 72%);
+    font-size: 15px;
+}
+
+.app-sidebar-menu.ant-menu-dark .ant-menu-item:hover {
+    background: rgb(255 255 255 / 8%) !important;
+    color: #ffffff !important;
+}
+
+.app-sidebar-menu.ant-menu-dark .ant-menu-item:hover .ant-menu-item-icon {
+    color: #ffffff;
+}
+
+.app-sidebar-menu.ant-menu-dark .ant-menu-item-selected {
+    background: #1677ff !important;
+    color: #ffffff !important;
+    font-weight: 500;
+}
+
+.app-sidebar-menu.ant-menu-dark .ant-menu-item-selected .ant-menu-item-icon {
+    color: #ffffff;
+}
+
+.app-sidebar.ant-layout-sider-collapsed .app-sidebar-logo {
+    margin: 0 auto;
+}
+
+.app-sidebar .ant-menu-inline-collapsed {
+    padding: 0 10px;
+}
+
+.app-sidebar .ant-menu-inline-collapsed > .ant-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 42px;
+    margin: 4px auto;
+    padding-inline: 0 !important;
+}
+
+.app-sidebar .ant-menu-inline-collapsed > .ant-menu-item:hover {
+    background: rgb(59 130 246 / 22%) !important;
+}
+
+.app-sidebar .ant-menu-inline-collapsed > .ant-menu-item-selected {
+    background: #1677ff !important;
+}
+
+.ant-tooltip.ant-menu-inline-collapsed-tooltip .ant-tooltip-inner {
+    min-height: 30px;
+    border-radius: 8px;
+    background: #1e293b;
+    color: #ffffff;
+    font-size: 12px;
+    box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
+}
+
+.ant-tooltip.ant-menu-inline-collapsed-tooltip .ant-tooltip-arrow::before {
+    background: #1e293b;
+}

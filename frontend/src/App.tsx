@@ -4,6 +4,7 @@ import LoginPage from '@/features/auth/page/LoginPage.tsx';
 import { GuestRoute } from '@/routes/GuestRoute.tsx';
 import DashboardPage from '@/features/dashboard/pages/DashboardPage.tsx';
 import { ProtectedRoute } from '@/routes/ProtectedRoute.tsx';
+import MainLayout from '@/components/layouts/MainLayout.tsx';
 
 export default function App() {
     return (
@@ -15,7 +16,9 @@ export default function App() {
                 </Route>
 
                 <Route element={<ProtectedRoute />}>
-                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route element={<MainLayout />}>
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                    </Route>
                 </Route>
 
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
